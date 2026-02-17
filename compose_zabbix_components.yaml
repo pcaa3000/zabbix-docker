@@ -28,14 +28,14 @@ services:
    nofile:
     soft: 20000
     hard: 40000
-  deploy:
-   resources:
-    limits:
-      cpus: '0.70'
-      memory: 1G
-    reservations:
-      cpus: '0.5'
-      memory: 512M
+#  deploy:
+#   resources:
+#    limits:
+#      cpus: '0.70'
+#      memory: 1G
+#    reservations:
+#      cpus: '0.5'
+#      memory: 512M
   env_file:
    - path: ${ENV_VARS_DIRECTORY}/.env_srv
      required: true
@@ -183,14 +183,14 @@ services:
    nofile:
     soft: 20000
     hard: 40000
-  deploy:
-   resources:
-    limits:
-      cpus: '0.70'
-      memory: 512M
-    reservations:
-      cpus: '0.3'
-      memory: 256M
+#  deploy:
+#   resources:
+#    limits:
+#      cpus: '0.70'
+#      memory: 512M
+#    reservations:
+#      cpus: '0.3'
+#      memory: 256M
   env_file:
    - path: ${ENV_VARS_DIRECTORY}/.env_prx
      required: true
@@ -320,14 +320,14 @@ services:
   tmpfs:
    - /tmp
    - /var/lib/php/session:mode=770,uid=1997,gid=1995
-  deploy:
-   resources:
-    limits:
-      cpus: '0.70'
-      memory: 512M
-    reservations:
-      cpus: '0.5'
-      memory: 256M
+#  deploy:
+#   resources:
+#    limits:
+#      cpus: '0.70'
+#      memory: 512M
+#    reservations:
+#      cpus: '0.5'
+#      memory: 256M
   env_file:
    - path: ${ENV_VARS_DIRECTORY}/.env_web
      required: true
@@ -414,14 +414,14 @@ services:
   tmpfs:
    - /tmp
    - /var/lib/php/session:mode=770,uid=1997,gid=1995
-  deploy:
-   resources:
-    limits:
-      cpus: '0.70'
-      memory: 512M
-    reservations:
-      cpus: '0.5'
-      memory: 256M
+#  deploy:
+#   resources:
+#    limits:
+#      cpus: '0.70'
+#      memory: 512M
+#    reservations:
+#      cpus: '0.5'
+#      memory: 256M
   env_file:
    - path: ${ENV_VARS_DIRECTORY}/.env_web
      required: true
@@ -510,15 +510,15 @@ services:
    - ${DATA_DIRECTORY}/var/lib/zabbix/ssh_keys:/var/lib/zabbix/ssh_keys:ro
    - ${DATA_DIRECTORY}/var/lib/zabbix/user_scripts:/var/lib/zabbix/user_scripts:ro
   tmpfs: /tmp
-  deploy:
-   resources:
-    limits:
-      cpus: '0.2'
-      memory: 128M
-    reservations:
-      cpus: '0.1'
-      memory: 64M
-   mode: global
+#  deploy:
+#   resources:
+#    limits:
+#      cpus: '0.2'
+#      memory: 128M
+#    reservations:
+#      cpus: '0.1'
+#      memory: 64M
+#   mode: global
   env_file:
    - path: ${ENV_VARS_DIRECTORY}/.env_agent
      required: true
@@ -562,15 +562,15 @@ services:
    - ${DATA_DIRECTORY}/var/lib/zabbix/ssh_keys:/var/lib/zabbix/ssh_keys:ro
    - ${DATA_DIRECTORY}/var/lib/zabbix/user_scripts:/var/lib/zabbix/user_scripts:ro
   tmpfs: /tmp
-  deploy:
-   resources:
-    limits:
-      cpus: '0.2'
-      memory: 128M
-    reservations:
-      cpus: '0.1'
-      memory: 64M
-   mode: global
+#  deploy:
+#   resources:
+#    limits:
+#      cpus: '0.2'
+#      memory: 128M
+#    reservations:
+#      cpus: '0.1'
+#      memory: 64M
+#   mode: global
   env_file:
    - path: ${ENV_VARS_DIRECTORY}/.env_agent
      required: true
@@ -602,14 +602,14 @@ services:
   attach: false
   volumes:
    - ${DATA_DIRECTORY}/usr/sbin/zabbix_java/ext_lib:/usr/sbin/zabbix_java/ext_lib:ro
-  deploy:
-   resources:
-    limits:
-      cpus: '0.5'
-      memory: 512M
-    reservations:
-      cpus: '0.25'
-      memory: 256M
+#  deploy:
+#   resources:
+#    limits:
+#      cpus: '0.5'
+#      memory: 512M
+#    reservations:
+#      cpus: '0.25'
+#      memory: 256M
   env_file:
    - path: ${ENV_VARS_DIRECTORY}/.env_java
      required: true
@@ -647,14 +647,14 @@ services:
    - ${DATA_DIRECTORY}/var/lib/zabbix/snmptrapd_config:/var/lib/zabbix/snmptrapd_config:rw
    - ${DATA_DIRECTORY}/var/lib/zabbix/mibs:/var/lib/zabbix/mibs:ro
   tmpfs: /tmp
-  deploy:
-   resources:
-    limits:
-      cpus: '0.5'
-      memory: 256M
-    reservations:
-      cpus: '0.25'
-      memory: 128M
+#  deploy:
+#   resources:
+#    limits:
+#      cpus: '0.5'
+#      memory: 256M
+#    reservations:
+#      cpus: '0.25'
+#      memory: 128M
   env_file:
    - path: ${ENV_VARS_DIRECTORY}/.env_snmptraps
      required: true
@@ -690,14 +690,14 @@ services:
    - /tmp
   security_opt:
    - seccomp:${ENV_VARS_DIRECTORY}/chrome_dp.json
-  deploy:
-   resources:
-    limits:
-      cpus: '0.5'
-      memory: 512M
-    reservations:
-      cpus: '0.25'
-      memory: 256M
+#  deploy:
+#   resources:
+#    limits:
+#      cpus: '0.5'
+#      memory: 512M
+#    reservations:
+#      cpus: '0.25'
+#      memory: 256M
   env_file:
    - path: ${ENV_VARS_DIRECTORY}/.env_web_service
      required: true
