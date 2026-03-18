@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 # escape=`
 ARG MAJOR_VERSION=7.4
-ARG ZBX_VERSION=${MAJOR_VERSION}.7
+ARG ZBX_VERSION=${MAJOR_VERSION}.8
 ARG BUILD_BASE_IMAGE=zabbix-build-base:ltsc2022-agent-${ZBX_VERSION}
 
 FROM ${BUILD_BASE_IMAGE} AS builder
@@ -61,7 +61,7 @@ RUN Set-Location -Path $env:SystemDrive\.; `
         TLSLIBDIR=$env:BUILD_OUTPUT\openssl\lib `
         MODBINCDIR=$env:BUILD_OUTPUT\libmodbus\include `
         MODBLIBDIR=$env:BUILD_OUTPUT\libmodbus\lib `
-        LIBS="""$env:LIBS Crypt32.lib $env:BUILD_OUTPUT\curl\lib\libcurl.lib $env:BUILD_OUTPUT\zlib\lib\zlibstatic.lib""" `
+        LIBS="""$env:LIBS Crypt32.lib $env:BUILD_OUTPUT\curl\lib\libcurl.lib $env:BUILD_OUTPUT\zlib\lib\zs.lib""" `
         all; `
     `
     Write-Host 'Verifying build ("zabbix_agentd.exe -V") ...'; `
