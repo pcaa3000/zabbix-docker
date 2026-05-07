@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.6
-ARG OS_BASE_IMAGE=ubuntu:noble
+ARG OS_BASE_IMAGE=ubuntu:resolute
 ARG MAJOR_VERSION=7.4
-ARG ZBX_VERSION=${MAJOR_VERSION}.8
+ARG ZBX_VERSION=${MAJOR_VERSION}.10
 ARG BUILD_BASE_IMAGE=zabbix-build-mysql:ubuntu-${ZBX_VERSION}
 
 FROM ${BUILD_BASE_IMAGE} AS builder
@@ -20,7 +20,8 @@ ENV TERM=xterm \
     ZABBIX_USER_HOME_DIR=/var/lib/zabbix \
     ZABBIX_CONF_DIR=/etc/zabbix
 
-ENV ZBX_DB_NAME=dummy_db_name \
+ENV DB_ENGINE=mysql \
+    ZBX_DB_NAME=dummy_db_name \
     ZBX_FPINGLOCATION=/usr/bin/fping \
     ZBX_LOADMODULEPATH=${ZABBIX_USER_HOME_DIR}/modules \
     ZBX_SNMPTRAPPERFILE=${ZABBIX_USER_HOME_DIR}/snmptraps/snmptraps.log \
@@ -61,18 +62,19 @@ RUN --mount=type=cache,target=/var/cache/apt/,sharing=locked \
             iputils-ping \
             fping \
             openssl \
+            libc6 \
             libcares2 \
             libcurl4t64 \
             libevent-2.1 \
             libevent-pthreads-2.1 \
             libevent-extra-2.1 \
-            libmysqlclient21 \
+            libmysqlclient24 \
             libopenipmi0t64 \
             libpcre2-8-0 \
             libsnmp40t64 \
             libssh-4 \
             libssl3t64 \
-            libxml2 \
+            libxml2-16 \
             mysql-client \
             snmp-mibs-downloader \
             gzip \
@@ -84,6 +86,16 @@ RUN --mount=type=cache,target=/var/cache/apt/,sharing=locked \
             -o Dpkg::Options::="--force-confold" \
             --no-install-recommends install \
         ${INSTALL_PKGS} && \
+    rm -f \
+        /var/lib/mibs/ietf/VM-MIB \
+        /var/lib/mibs/ietf/TRILL-OAM-MIB \
+        /var/lib/mibs/ietf/SMF-MIB \
+        /var/lib/mibs/ietf/ENERGY-OBJECT-MIB \
+        /var/lib/mibs/ietf/POWER-ATTRIBUTES-MIB \
+        /var/lib/mibs/ietf/OLSRv2-MIB \
+        /var/lib/mibs/ietf/ENERGY-OBJECT-CONTEXT-MIB \
+        /var/lib/mibs/ietf/BFD-STD-MIB \
+        /var/lib/mibs/ietf/SNMPv2-PDU && \
     groupadd \
             --system \
             --gid 1995 \
@@ -125,13 +137,17 @@ RUN --mount=type=cache,target=/var/cache/apt/,sharing=locked \
     chmod g=u ${ZABBIX_CONF_DIR} && \
     /usr/sbin/zabbix_server -V
 
+RUN --mount=from=entrypoints,target=/tmp/entrypoints,ro \
+    set -eux && \
+    install -d /usr/lib/docker-entrypoint && \
+    install -m 0755 /tmp/entrypoints/server-mysql.sh /usr/bin/docker-entrypoint.sh && \
+    install -m 0644 /tmp/entrypoints/lib/*.sh /usr/lib/docker-entrypoint/
+
 EXPOSE 10051/tcp
 
 WORKDIR ${ZABBIX_USER_HOME_DIR}
 
 VOLUME ["${ZABBIX_USER_HOME_DIR}/snmptraps", "${ZABBIX_USER_HOME_DIR}/export"]
-
-COPY ["docker-entrypoint.sh", "/usr/bin/"]
 
 ENTRYPOINT ["/usr/bin/docker-entrypoint.sh"]
 

@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.6
 ARG OS_BASE_IMAGE=container-registry.oracle.com/os/oraclelinux:10-slim
 ARG MAJOR_VERSION=7.4
-ARG ZBX_VERSION=${MAJOR_VERSION}.8
+ARG ZBX_VERSION=${MAJOR_VERSION}.10
 ARG BUILD_BASE_IMAGE=zabbix-build-mysql:ol-${ZBX_VERSION}
 
 FROM ${BUILD_BASE_IMAGE} AS builder
@@ -33,7 +33,6 @@ STOPSIGNAL SIGTERM
 
 COPY --from=builder /tmp/zabbix-${ZBX_VERSION}-output/web_service/sbin/zabbix_web_service /usr/sbin/zabbix_web_service
 COPY --from=builder /tmp/zabbix-${ZBX_VERSION}-output/web_service/conf/ ${ZABBIX_CONF_DIR}/
-COPY conf/etc/yum.repos.d/oracle-epel-ol10.repo /etc/yum.repos.d/oracle-epel-ol10.repo
 
 RUN --mount=type=tmpfs,target=/var/lib/dnf/ \
     --mount=type=tmpfs,target=/var/cache/yum/ \
@@ -43,8 +42,16 @@ RUN --mount=type=tmpfs,target=/var/lib/dnf/ \
     microdnf -y install \
             --disablerepo="*" \
             --enablerepo="ol10_baseos_latest" \
+            --setopt=install_weak_deps=0 \
+            --setopt=keepcache=0 \
+            --best \
+            --nodocs \
+        oracle-epel-release-el10 && \
+    microdnf -y install \
+            --disablerepo="*" \
+            --enablerepo="ol10_baseos_latest" \
             --enablerepo="ol10_appstream" \
-            --enablerepo="ol10_u0_developer_EPEL" \
+            --enablerepo="ol10_u1_developer_EPEL" \
             --setopt=install_weak_deps=0 \
             --setopt=keepcache=0 \
             --best \
@@ -70,11 +77,15 @@ RUN --mount=type=tmpfs,target=/var/lib/dnf/ \
     chmod -R g=u ${ZABBIX_USER_HOME_DIR}/ && \
     /usr/sbin/zabbix_web_service -V
 
+RUN --mount=from=entrypoints,target=/tmp/entrypoints,ro \
+    set -eux && \
+    install -d /usr/lib/docker-entrypoint && \
+    install -m 0755 /tmp/entrypoints/web-service.sh /usr/bin/docker-entrypoint.sh && \
+    install -m 0644 /tmp/entrypoints/lib/*.sh /usr/lib/docker-entrypoint/
+
 EXPOSE 10053/tcp
 
 WORKDIR ${ZABBIX_USER_HOME_DIR}
-
-COPY docker-entrypoint.sh /usr/bin/
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 

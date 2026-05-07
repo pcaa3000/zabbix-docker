@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.6
 ARG MAJOR_VERSION=7.4
-ARG ZBX_VERSION=${MAJOR_VERSION}.8
+ARG ZBX_VERSION=${MAJOR_VERSION}.10
 ARG BUILD_BASE_IMAGE=zabbix-build-base:ubuntu-${ZBX_VERSION}
 
 FROM ${BUILD_BASE_IMAGE} AS builder
@@ -47,6 +47,7 @@ RUN --mount=from=sources,target=/tmp/src,ro \
         ${ZBX_OUTPUT_DIR}/proxy/conf \
         ${ZBX_OUTPUT_DIR}/proxy/database/${DB_TYPE} \
         ${ZBX_OUTPUT_DIR}/java_gateway/sbin \
+        ${ZBX_OUTPUT_DIR}/web/conf \
         ${ZBX_OUTPUT_DIR}/general/sbin \
         ${ZBX_OUTPUT_DIR}/general/bin \
         ${ZBX_OUTPUT_DIR}/general/conf && \
@@ -74,6 +75,8 @@ RUN --mount=from=sources,target=/tmp/src,ro \
     sed -i "s/{ZABBIX_REVISION}/$zabbix_revision/g" include/version.h && \
     sed -i "s/{ZABBIX_REVISION}/$zabbix_revision/g" src/go/pkg/version/version.go && \
     sed -i "s/{ZABBIX_REVISION}/$zabbix_revision/g" src/zabbix_java/src/com/zabbix/gateway/GeneralInformation.java
+
+WORKDIR ${ZBX_SOURCES_DIR}
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/root/go/pkg/mod \
@@ -130,6 +133,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     cp -a src/zabbix_java/lib/. "${ZBX_OUTPUT_DIR}/java_gateway/sbin/lib/" && \
     cp src/zabbix_get/zabbix_get "${ZBX_OUTPUT_DIR}/general/bin/" && \
     cp src/zabbix_sender/zabbix_sender "${ZBX_OUTPUT_DIR}/general/bin/" && \
+    cp -a /tmp/conf/web/. "${ZBX_OUTPUT_DIR}/web/conf/" && \
     make -s distclean
 
 RUN set -eux && \

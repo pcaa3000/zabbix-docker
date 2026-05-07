@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.6
 ARG OS_BASE_IMAGE=alpine:3.23
 ARG MAJOR_VERSION=7.4
-ARG ZBX_VERSION=${MAJOR_VERSION}.8
+ARG ZBX_VERSION=${MAJOR_VERSION}.10
 ARG BUILD_BASE_IMAGE=zabbix-build-pgsql:alpine-${ZBX_VERSION}
 
 FROM ${BUILD_BASE_IMAGE} AS builder
@@ -31,6 +31,14 @@ ENV TERM=xterm \
     ZABBIX_USER_HOME_DIR=/var/lib/zabbix \
     ZABBIX_WWW_ROOT=/usr/share/zabbix
 
+ENV APACHE_BIN=/usr/sbin/httpd \
+    PHP_FPM_BIN=/usr/sbin/php-fpm85 \
+    APACHE_RUN_DIR=/tmp/apache2 \
+    HTTPD_CONF_FILE=/etc/apache2/httpd.conf \
+    APACHE_SITES_DIR=/etc/apache2/conf.d \
+    PHP_FPM_CONFIG=/etc/php85/php-fpm.conf \
+    PHP_ZBX_CONFIG_FILE=/etc/php85/php-fpm.d/zabbix.conf
+
 LABEL org.opencontainers.image.authors="Alexey Pustovalov <alexey.pustovalov@zabbix.com>" \
       org.opencontainers.image.description="Zabbix web-interface based on Apache2 web server with PostgreSQL database support" \
       org.opencontainers.image.documentation="https://www.zabbix.com/documentation/${MAJOR_VERSION}/manual/installation/containers" \
@@ -43,34 +51,35 @@ LABEL org.opencontainers.image.authors="Alexey Pustovalov <alexey.pustovalov@zab
 
 STOPSIGNAL SIGTERM
 
-COPY --from=clean_builder /tmp/zabbix-${ZBX_VERSION}/ui ${ZABBIX_WWW_ROOT}
+COPY --from=clean_builder /tmp/zabbix-${ZBX_VERSION}/ui ${ZABBIX_WWW_ROOT}/
+COPY --from=clean_builder /tmp/zabbix-${ZBX_VERSION}-output/web/conf ${ZABBIX_CONF_DIR}/web/
 COPY conf/etc/ /etc/
 
 RUN set -eux && \
     INSTALL_PKGS="bash \
             tzdata \
             curl \
+            jq \
             apache2 \
             apache2-proxy \
-            php84-bcmath \
-            php84-ctype \
-            php84-curl \
-            php84-fpm \
-            php84-gd \
-            php84-gettext \
-            php84-json \
-            php84-ldap \
-            php84-pgsql \
-            php84-mbstring \
-            php84-session \
-            php84-simplexml \
-            php84-sockets \
-            php84-fileinfo \
-            php84-xmlreader \
-            php84-xmlwriter \
-            php84-openssl \
-            postgresql17-client \
-            supervisor" && \
+            php85-bcmath \
+            php85-ctype \
+            php85-curl \
+            php85-fpm \
+            php85-gd \
+            php85-gettext \
+            php85-json \
+            php85-ldap \
+            php85-pgsql \
+            php85-mbstring \
+            php85-session \
+            php85-simplexml \
+            php85-sockets \
+            php85-fileinfo \
+            php85-xmlreader \
+            php85-xmlwriter \
+            php85-openssl \
+            postgresql17-client" && \
     apk add \
             --no-cache \
             --clean-protected \
@@ -106,7 +115,7 @@ RUN set -eux && \
         /etc/apache2/conf.d/proxy.conf \
         /etc/apache2/conf.d/languages.conf \
         /etc/apache2/conf.d/userdir.conf \
-        /etc/php84/php-fpm.d/www.conf \
+        /etc/php85/php-fpm.d/www.conf \
         /var/run/apache2/ && \
     ln -sf "${ZABBIX_CONF_DIR}/web/zabbix.conf.php" "${ZABBIX_WWW_ROOT}/conf/zabbix.conf.php" && \
     ln -sf "${ZABBIX_CONF_DIR}/web/maintenance.inc.php" "${ZABBIX_WWW_ROOT}/conf/maintenance.inc.php" && \
@@ -116,11 +125,17 @@ RUN set -eux && \
         ${ZABBIX_WWW_ROOT}/modules/ \
         ${ZABBIX_USER_HOME_DIR} \
         /etc/apache2/ \
-        /etc/php84/php-fpm.d/ \
-        /etc/php84/php-fpm.conf \
+        /etc/php85/php-fpm.d/ \
+        /etc/php85/php-fpm.conf \
         /var/lib/php/session/" && \
     chown --quiet -R zabbix:0 ${FIX_PERM_LIST} && \
     chmod -R g=u ${FIX_PERM_LIST}
+
+RUN --mount=from=entrypoints,target=/tmp/entrypoints,ro \
+    set -eux && \
+    install -d /usr/lib/docker-entrypoint && \
+    install -m 0755 /tmp/entrypoints/web-apache-pgsql.sh /usr/bin/docker-entrypoint.sh && \
+    install -m 0644 /tmp/entrypoints/lib/*.sh /usr/lib/docker-entrypoint/
 
 HEALTHCHECK --interval=1m30s --timeout=3s --retries=3 --start-period=40s --start-interval=5s \
     CMD curl -f http://localhost:8080/ping || exit 1
@@ -128,8 +143,6 @@ HEALTHCHECK --interval=1m30s --timeout=3s --retries=3 --start-period=40s --start
 EXPOSE 8080/tcp 8443/tcp
 
 WORKDIR ${ZABBIX_WWW_ROOT}
-
-COPY ["docker-entrypoint.sh", "/usr/bin/"]
 
 USER 1997
 

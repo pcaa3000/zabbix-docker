@@ -1,9 +1,9 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1.6
 # escape=`
 ARG OS_BASE_IMAGE=mcr.microsoft.com/windows/nanoserver:ltsc2022
 
 ARG MAJOR_VERSION=7.4
-ARG ZBX_VERSION=${MAJOR_VERSION}.8
+ARG ZBX_VERSION=${MAJOR_VERSION}.10
 
 ARG BUILD_BASE_IMAGE=zabbix-build-agent:ltsc2022-agent-${ZBX_VERSION}
 
@@ -68,4 +68,6 @@ USER zabbix
 
 EXPOSE 10050/tcp
 
-CMD C:\zabbix\docker-entrypoint.ps1 C:\zabbix\sbin\zabbix_agentd.exe -c C:\zabbix\conf\zabbix_agentd.conf -f
+ENTRYPOINT ["pwsh", "-File", "C:\\zabbix\\docker-entrypoint.ps1"]
+
+CMD ["C:\\zabbix\\sbin\\zabbix_agentd.exe", "-c", "C:\\zabbix\\conf\\zabbix_agentd.conf", "-f"]

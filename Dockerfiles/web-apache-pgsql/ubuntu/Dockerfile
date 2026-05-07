@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.6
-ARG OS_BASE_IMAGE=ubuntu:noble
+ARG OS_BASE_IMAGE=ubuntu:resolute
 ARG MAJOR_VERSION=7.4
-ARG ZBX_VERSION=${MAJOR_VERSION}.8
+ARG ZBX_VERSION=${MAJOR_VERSION}.10
 ARG BUILD_BASE_IMAGE=zabbix-build-pgsql:ubuntu-${ZBX_VERSION}
 
 FROM ${BUILD_BASE_IMAGE} AS builder
@@ -32,6 +32,16 @@ ENV TERM=xterm \
     ZABBIX_WWW_ROOT=/usr/share/zabbix \
     PYTHONDONTWRITEBYTECODE=1
 
+ENV DAEMON_USER=www-data \
+    DAEMON_GROUP=www-data \
+    APACHE_BIN=/usr/sbin/apache2 \
+    PHP_FPM_BIN=/usr/sbin/php-fpm8.5 \
+    APACHE_RUN_DIR=/tmp/apache2 \
+    HTTPD_CONF_FILE=/etc/apache2/apache2.conf \
+    APACHE_SITES_DIR=/etc/apache2/sites-enabled \
+    PHP_FPM_CONFIG=/etc/php/8.5/fpm/php-fpm.conf \
+    PHP_ZBX_CONFIG_FILE=/etc/php/8.5/fpm/pool.d/zabbix.conf
+
 LABEL org.opencontainers.image.authors="Alexey Pustovalov <alexey.pustovalov@zabbix.com>" \
       org.opencontainers.image.description="Zabbix web-interface based on Apache2 web server with PostgreSQL database support" \
       org.opencontainers.image.documentation="https://www.zabbix.com/documentation/${MAJOR_VERSION}/manual/installation/containers" \
@@ -45,6 +55,7 @@ LABEL org.opencontainers.image.authors="Alexey Pustovalov <alexey.pustovalov@zab
 STOPSIGNAL SIGTERM
 
 COPY --from=clean_builder /tmp/zabbix-${ZBX_VERSION}/ui ${ZABBIX_WWW_ROOT}/
+COPY --from=clean_builder /tmp/zabbix-${ZBX_VERSION}-output/web/conf ${ZABBIX_CONF_DIR}/web/
 COPY conf/etc/ /etc/
 
 RUN --mount=type=cache,target=/var/cache/apt/,sharing=locked \
@@ -59,44 +70,22 @@ RUN --mount=type=cache,target=/var/cache/apt/,sharing=locked \
             apache2 \
             locales \
             libldap-common \
-            php8.3-bcmath \
-            php8.3-curl \
-            php8.3-fpm \
-            php8.3-gd \
-            php8.3-ldap \
-            php8.3-mbstring \
-            php8.3-xml \
-            php8.3-pgsql \
-            postgresql-client-17 \
-            supervisor" && \
-    apt-get -y update && \
-    DEBIAN_FRONTEND=noninteractive apt-get -y \
-            -o Dpkg::Options::="--force-confdef" \
-            -o Dpkg::Options::="--force-confold" \
-            --no-install-recommends install \
-        ca-certificates \
-        curl \
-        gnupg && \
-    curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
-        | gpg --dearmor -o /usr/share/keyrings/postgresql.gpg && \
-    . /etc/os-release && \
-    echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
-        > /etc/apt/sources.list.d/pgdg.list && \
+            php8.5-bcmath \
+            php8.5-curl \
+            php8.5-fpm \
+            php8.5-gd \
+            php8.5-ldap \
+            php8.5-mbstring \
+            php8.5-xml \
+            php8.5-pgsql \
+            postgresql-client \
+            jq" && \
     apt-get -y update && \
     DEBIAN_FRONTEND=noninteractive apt-get -y \
             -o Dpkg::Options::="--force-confdef" \
             -o Dpkg::Options::="--force-confold" \
             --no-install-recommends install \
         ${INSTALL_PKGS} && \
-    DEBIAN_FRONTEND=noninteractive apt-get -y \
-            purge \
-              curl \
-              gnupg && \
-    apt-get -y autoremove && \
-    find /usr/lib -type f -name '*.pyc' -delete && \
-    find /usr/share/python3 -type f -name '*.pyc' -delete && \
-    find /usr/lib -type d -name '__pycache__' -empty -delete && \
-    find /usr/share/python3 -type d -name '__pycache__' -empty -delete && \
     groupadd \
             --system \
             --gid 1995 \
@@ -119,8 +108,8 @@ RUN --mount=type=cache,target=/var/cache/apt/,sharing=locked \
         /var/lib/php/session \
         /var/lib/locales/supported.d && \
     rm -rf /etc/apache2/sites-available/* \
-        /etc/apache2/sites-enabled/* \
-        /etc/php/8.3/fpm/pool.d/www.conf \
+        ${APACHE_SITES_DIR}/*.conf \
+        /etc/php/8.5/fpm/pool.d/www.conf \
         /var/run/apache2/ \
         /var/lib/locales/supported.d/local && \
     ln -sf "${ZABBIX_CONF_DIR}/web/zabbix.conf.php" "${ZABBIX_WWW_ROOT}/conf/zabbix.conf.php" && \
@@ -135,11 +124,17 @@ RUN --mount=type=cache,target=/var/cache/apt/,sharing=locked \
         ${ZABBIX_WWW_ROOT}/modules/ \
         ${ZABBIX_USER_HOME_DIR}/ \
         /etc/apache2/ \
-        /etc/php/8.3/fpm/php-fpm.conf \
-        /etc/php/8.3/fpm/pool.d/ \
+        /etc/php/8.5/fpm/php-fpm.conf \
+        /etc/php/8.5/fpm/pool.d/ \
         /var/lib/php/session/" && \
     chown --quiet -R zabbix:0 ${FIX_PERM_LIST} && \
     chmod -R g=u ${FIX_PERM_LIST}
+
+RUN --mount=from=entrypoints,target=/tmp/entrypoints,ro \
+    set -eux && \
+    install -d /usr/lib/docker-entrypoint && \
+    install -m 0755 /tmp/entrypoints/web-apache-pgsql.sh /usr/bin/docker-entrypoint.sh && \
+    install -m 0644 /tmp/entrypoints/lib/*.sh /usr/lib/docker-entrypoint/
 
 HEALTHCHECK --interval=1m30s --timeout=3s --retries=3 --start-period=40s --start-interval=5s \
     CMD curl -f http://localhost:8080/ping || exit 1
@@ -147,8 +142,6 @@ HEALTHCHECK --interval=1m30s --timeout=3s --retries=3 --start-period=40s --start
 EXPOSE 8080/tcp 8443/tcp
 
 WORKDIR ${ZABBIX_WWW_ROOT}
-
-COPY ["docker-entrypoint.sh", "/usr/bin/"]
 
 USER 1997
 

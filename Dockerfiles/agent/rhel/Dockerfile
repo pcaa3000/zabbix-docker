@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1.6
 ARG OS_BASE_IMAGE=registry.access.redhat.com/ubi10/ubi-minimal:10.1
 ARG MAJOR_VERSION=7.4
-ARG RELEASE=8
-ARG ZBX_VERSION=${MAJOR_VERSION}.8
+ARG RELEASE=10
+ARG ZBX_VERSION=${MAJOR_VERSION}.10
 ARG BUILD_BASE_IMAGE=zabbix-build-mysql:rhel-${ZBX_VERSION}
 
 FROM ${BUILD_BASE_IMAGE} AS builder
@@ -103,7 +103,7 @@ RUN --mount=type=tmpfs,target=/var/lib/dnf/ \
             --shell /sbin/nologin \
             --home-dir ${ZABBIX_USER_HOME_DIR} \
         zabbix && \
-    mkdir -p ${ZABBIX_CONF_DIR} \ 
+    mkdir -p ${ZABBIX_CONF_DIR} \
         ${ZABBIX_CONF_DIR}/zabbix_agentd.d \
         ${ZABBIX_USER_HOME_DIR} \
         ${ZABBIX_USER_HOME_DIR}/enc \
@@ -121,11 +121,15 @@ RUN --mount=type=tmpfs,target=/var/lib/dnf/ \
     chmod g=u ${ZABBIX_CONF_DIR} && \
     /usr/sbin/zabbix_agentd -V
 
+RUN --mount=from=entrypoints,target=/tmp/entrypoints,ro \
+    set -eux && \
+    install -d /usr/lib/docker-entrypoint && \
+    install -m 0755 /tmp/entrypoints/agent.sh /usr/bin/docker-entrypoint.sh && \
+    install -m 0644 /tmp/entrypoints/lib/*.sh /usr/lib/docker-entrypoint/
+
 EXPOSE 10050/tcp
 
 WORKDIR ${ZABBIX_USER_HOME_DIR}
-
-COPY docker-entrypoint.sh /usr/bin/
 
 ENTRYPOINT ["/usr/bin/docker-entrypoint.sh"]
 

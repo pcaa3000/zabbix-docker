@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.6
-ARG OS_BASE_IMAGE=ubuntu:noble
+ARG OS_BASE_IMAGE=ubuntu:resolute
 ARG MAJOR_VERSION=7.4
-ARG ZBX_VERSION=${MAJOR_VERSION}.8
+ARG ZBX_VERSION=${MAJOR_VERSION}.10
 ARG BUILD_BASE_IMAGE=zabbix-build-mysql:ubuntu-${ZBX_VERSION}
 
 FROM ${BUILD_BASE_IMAGE} AS builder
@@ -48,10 +48,10 @@ RUN --mount=type=cache,target=/var/cache/apt/,sharing=locked \
     DEBIAN_FRONTEND=noninteractive apt-get -y \
             --no-install-recommends install \
         ${INSTALL_TEMP_PKGS} && \
-    gpg --keyserver keyserver.ubuntu.com --recv-keys 0E98404D386FA1D9 && \
-    gpg -o /etc/apt/keyrings/debian.gpg --export 0E98404D386FA1D9 && \
-    echo "deb [signed-by=/etc/apt/keyrings/debian.gpg] http://deb.debian.org/debian bullseye main" > /etc/apt/sources.list.d/debian.list && \
-    echo "deb [signed-by=/etc/apt/keyrings/debian.gpg] http://deb.debian.org/debian bullseye-updates main" >> /etc/apt/sources.list.d/debian.list && \
+    gpg --keyserver keyserver.ubuntu.com --recv-keys 78DBA3BC47EF2265 && \
+    gpg -o /etc/apt/keyrings/debian.gpg --export 78DBA3BC47EF2265 && \
+    echo "deb [signed-by=/etc/apt/keyrings/debian.gpg] http://deb.debian.org/debian trixie main" > /etc/apt/sources.list.d/debian.list && \
+    echo "deb [signed-by=/etc/apt/keyrings/debian.gpg] http://deb.debian.org/debian trixie-updates main" >> /etc/apt/sources.list.d/debian.list && \
     apt-get -y update && \
     DEBIAN_FRONTEND=noninteractive apt-get -y \
             -o Dpkg::Options::="--force-confdef" \
@@ -83,11 +83,15 @@ RUN --mount=type=cache,target=/var/cache/apt/,sharing=locked \
     apt-get -y autoremove && \
     /usr/sbin/zabbix_web_service -V
 
+RUN --mount=from=entrypoints,target=/tmp/entrypoints,ro \
+    set -eux && \
+    install -d /usr/lib/docker-entrypoint && \
+    install -m 0755 /tmp/entrypoints/web-service.sh /usr/bin/docker-entrypoint.sh && \
+    install -m 0644 /tmp/entrypoints/lib/*.sh /usr/lib/docker-entrypoint/
+
 EXPOSE 10053/tcp
 
 WORKDIR ${ZABBIX_USER_HOME_DIR}
-
-COPY ["docker-entrypoint.sh", "/usr/bin/"]
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 

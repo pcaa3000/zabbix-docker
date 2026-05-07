@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.6
 ARG MAJOR_VERSION=7.4
-ARG ZBX_VERSION=${MAJOR_VERSION}.8
+ARG ZBX_VERSION=${MAJOR_VERSION}.10
 ARG BUILD_BASE_IMAGE=zabbix-build-base:ubuntu-${ZBX_VERSION}
 
 FROM ${BUILD_BASE_IMAGE} AS builder
@@ -49,9 +49,12 @@ RUN --mount=from=sources,target=/tmp/src,ro \
         ${ZBX_OUTPUT_DIR}/server/sbin \
         ${ZBX_OUTPUT_DIR}/server/conf \
         ${ZBX_OUTPUT_DIR}/server/database/${DB_TYPE} \
+        ${ZBX_OUTPUT_DIR}/server/database/${DB_TYPE}/option-patches/with-compression/ \
+        ${ZBX_OUTPUT_DIR}/server/database/${DB_TYPE}/option-patches/without-compression/ \
         ${ZBX_OUTPUT_DIR}/java_gateway/sbin \
         ${ZBX_OUTPUT_DIR}/web_service/sbin \
         ${ZBX_OUTPUT_DIR}/web_service/conf \
+        ${ZBX_OUTPUT_DIR}/web/conf \
         ${ZBX_OUTPUT_DIR}/general/sbin \
         ${ZBX_OUTPUT_DIR}/general/bin \
         ${ZBX_OUTPUT_DIR}/general/conf && \
@@ -79,6 +82,8 @@ RUN --mount=from=sources,target=/tmp/src,ro \
     sed -i "s/{ZABBIX_REVISION}/$zabbix_revision/g" include/version.h && \
     sed -i "s/{ZABBIX_REVISION}/$zabbix_revision/g" src/go/pkg/version/version.go && \
     sed -i "s/{ZABBIX_REVISION}/$zabbix_revision/g" src/zabbix_java/src/com/zabbix/gateway/GeneralInformation.java
+
+WORKDIR ${ZBX_SOURCES_DIR}
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/root/go/pkg/mod \
@@ -121,6 +126,9 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     cat "database/${DB_TYPE}/data.sql" >> "database/${DB_TYPE}/create.sql" && \
     gzip -c "database/${DB_TYPE}/create.sql" > "${ZBX_OUTPUT_DIR}/server/database/${DB_TYPE}/create.sql.gz" && \
     rm -f "database/${DB_TYPE}/create.sql" && \
+    cp "database/${DB_TYPE}/timescaledb/schema.sql" "${ZBX_OUTPUT_DIR}/server/database/${DB_TYPE}/timescaledb.sql" && \
+    cp -R "${ZBX_SOURCES_DIR}/database/${DB_TYPE}/timescaledb/option-patches/with-compression/*.sql ${ZBX_OUTPUT_DIR}/server/database/${DB_TYPE}/option-patches/with-compression/" && \
+    cp -R "${ZBX_SOURCES_DIR}/database/${DB_TYPE}/timescaledb/option-patches/without-compression/*.sql" "${ZBX_OUTPUT_DIR}/server/database/${DB_TYPE}/option-patches/without-compression/" && \
     strip src/zabbix_agent/zabbix_agentd && \
     strip src/zabbix_server/zabbix_server && \
     strip src/zabbix_proxy/zabbix_proxy && \
@@ -149,6 +157,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     cp -a /tmp/conf/web_service/. "${ZBX_OUTPUT_DIR}/web_service/conf/" && \
     cp src/zabbix_get/zabbix_get "${ZBX_OUTPUT_DIR}/general/bin/" && \
     cp src/zabbix_sender/zabbix_sender "${ZBX_OUTPUT_DIR}/general/bin/" && \
+    cp -a /tmp/conf/web/. "${ZBX_OUTPUT_DIR}/web/conf/" && \
     make -s distclean
 
 RUN set -eux && \

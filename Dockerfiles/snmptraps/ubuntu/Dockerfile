@@ -1,9 +1,9 @@
 # syntax=docker/dockerfile:1.6
-ARG OS_BASE_IMAGE=ubuntu:noble
+ARG OS_BASE_IMAGE=ubuntu:resolute
 FROM ${OS_BASE_IMAGE}
 
 ARG MAJOR_VERSION=7.4
-ARG ZBX_VERSION=${MAJOR_VERSION}.8
+ARG ZBX_VERSION=${MAJOR_VERSION}.10
 ARG ZBX_SOURCES=https://git.zabbix.com/scm/zbx/zabbix.git
 
 ENV TERM=xterm \
@@ -27,12 +27,10 @@ LABEL org.opencontainers.image.authors="Alexey Pustovalov <alexey.pustovalov@zab
 
 STOPSIGNAL SIGTERM
 
-COPY conf/etc/logrotate.d/zabbix_snmptraps /etc/logrotate.d/
-COPY conf/etc/snmp/snmptrapd.conf /etc/snmp/
-COPY conf/usr/sbin/zabbix_trap_handler.sh conf/usr/sbin/snmptrapd_runner.sh /usr/sbin/
-
 RUN --mount=type=cache,target=/var/cache/apt/,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/,sharing=locked \
+    --mount=from=config_templates,target=/tmp/conf,ro \
+    --mount=from=scripts,target=/tmp/scripts,ro \
     set -eux && \
     printf '%s\n' '#!/bin/sh' 'exit 101' > /usr/sbin/policy-rc.d && \
     chmod +x /usr/sbin/policy-rc.d && \
@@ -59,10 +57,24 @@ RUN --mount=type=cache,target=/var/cache/apt/,sharing=locked \
             --home-dir ${ZABBIX_USER_HOME_DIR} \
         zabbix && \
     download-mibs && \
+    rm -f \
+        /var/lib/mibs/ietf/VM-MIB \
+        /var/lib/mibs/ietf/TRILL-OAM-MIB \
+        /var/lib/mibs/ietf/SMF-MIB \
+        /var/lib/mibs/ietf/ENERGY-OBJECT-MIB \
+        /var/lib/mibs/ietf/POWER-ATTRIBUTES-MIB \
+        /var/lib/mibs/ietf/OLSRv2-MIB \
+        /var/lib/mibs/ietf/ENERGY-OBJECT-CONTEXT-MIB \
+        /var/lib/mibs/ietf/BFD-STD-MIB \
+        /var/lib/mibs/ietf/SNMPv2-PDU && \
     mkdir -p ${ZABBIX_USER_HOME_DIR} \
         ${ZABBIX_USER_HOME_DIR}/snmptraps \
         ${ZABBIX_USER_HOME_DIR}/mibs \
         ${SNMP_PERSISTENT_DIR} && \
+    cp /tmp/conf/logrotate.d/zabbix_snmptraps /etc/logrotate.d/ && \
+    cp /tmp/conf/snmp/snmptrapd.conf /etc/snmp/ && \
+    cp /tmp/scripts/zabbix_trap_handler.sh /usr/sbin/ && \
+    cp /tmp/scripts/snmptrapd_runner.sh /usr/sbin/ && \
     FIX_PERM_LIST="\
         /etc/snmp/ \
         ${ZABBIX_USER_HOME_DIR}/ \

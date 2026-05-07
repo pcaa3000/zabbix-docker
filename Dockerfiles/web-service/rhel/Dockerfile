@@ -1,13 +1,12 @@
 # syntax=docker/dockerfile:1.6
 ARG OS_BASE_IMAGE=registry.access.redhat.com/ubi10/ubi-minimal:10.1
 ARG MAJOR_VERSION=7.4
-ARG RELEASE=8
-ARG ZBX_VERSION=${MAJOR_VERSION}.8
+ARG RELEASE=10
+ARG ZBX_VERSION=${MAJOR_VERSION}.10
 ARG BUILD_BASE_IMAGE=zabbix-build-mysql:rhel-${ZBX_VERSION}
 
 FROM ${BUILD_BASE_IMAGE} AS builder
 
-ARG OS_BASE_IMAGE=registry.access.redhat.com/ubi10/ubi-minimal:10.1
 FROM ${OS_BASE_IMAGE}
 
 ARG MAJOR_VERSION
@@ -65,7 +64,7 @@ RUN --mount=type=tmpfs,target=/var/lib/dnf/ \
     rm -rf /tmp/epel-release-latest-10.noarch.rpm && \
     ARCH_SUFFIX="$(arch)"; \
     microdnf -y install \
-            --disablerepo "*" \
+            --disablerepo="*" \
             --enablerepo="ubi-10-baseos-rpms" \
             --enablerepo="ubi-10-appstream-rpms" \
             --enablerepo="rhel-10-for-$ARCH_SUFFIX-baseos-rpms" \
@@ -96,11 +95,15 @@ RUN --mount=type=tmpfs,target=/var/lib/dnf/ \
     chmod -R g=u ${ZABBIX_USER_HOME_DIR}/ && \
     /usr/sbin/zabbix_web_service -V
 
+RUN --mount=from=entrypoints,target=/tmp/entrypoints,ro \
+    set -eux && \
+    install -d /usr/lib/docker-entrypoint && \
+    install -m 0755 /tmp/entrypoints/web-service.sh /usr/bin/docker-entrypoint.sh && \
+    install -m 0644 /tmp/entrypoints/lib/*.sh /usr/lib/docker-entrypoint/
+
 EXPOSE 10053/tcp
 
 WORKDIR ${ZABBIX_USER_HOME_DIR}
-
-COPY docker-entrypoint.sh /usr/bin/
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 

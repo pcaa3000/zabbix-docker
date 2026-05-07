@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1.6
 # escape=`
 ARG OS_BASE_IMAGE=mcr.microsoft.com/windows/servercore:ltsc2022
 
@@ -14,7 +14,7 @@ ARG ZLIB_VERSION=1.3.2
 ARG CURL_VERSION=8.17.0
 
 ARG MAJOR_VERSION=7.4
-ARG ZBX_VERSION=${MAJOR_VERSION}.8
+ARG ZBX_VERSION=${MAJOR_VERSION}.10
 
 FROM ${OS_BASE_IMAGE} AS src
 
@@ -71,7 +71,7 @@ RUN Set-Location -Path $env:SystemDrive\.; `
     Expand-Archive `
         -Path $env:BUILD_DEPS\pwsh.zip `
         -DestinationPath $env:BUILD_DEPS\pwsh\.; `
-	Get-ChildItem -Path $env:BUILD_DEPS\pwsh -Directory | Where-Object { `
+    Get-ChildItem -Path $env:BUILD_DEPS\pwsh -Directory | Where-Object { `
         $_.Name -match '^(cs|de|es|fr|it|ja|ko|pl|pt-BR|ru|tr|zh-Hans|zh-Hant)$' `
     } | Remove-Item -Recurse -Force; `
     Get-ChildItem -Path $env:BUILD_DEPS\pwsh -Recurse -Include '*.xml' | Where-Object { $_.FullName -notmatch '\\en-US\\' } | Remove-Item -Force; `
@@ -81,7 +81,7 @@ RUN Set-Location -Path $env:SystemDrive\.; `
     Expand-Archive `
         -Path $env:BUILD_DEPS\nasm.zip `
         -DestinationPath $env:BUILD_DEPS\.; `
-	Rename-Item -Path $env:BUILD_DEPS\nasm-$env:NASM_VERSION -NewName $env:BUILD_DEPS\NASM; `
+    Rename-Item -Path $env:BUILD_DEPS\nasm-$env:NASM_VERSION -NewName $env:BUILD_DEPS\NASM; `
     `
     Write-Host 'Installing GIT...'; `
     Expand-Archive `
@@ -102,6 +102,7 @@ RUN Set-Location -Path $env:SystemDrive\.; `
     Write-Host 'Extracting OpenSSL archive ...'; `
     tar -zxf $env:BUILD_SRC\openssl.tar.gz; `
     Rename-Item -Path $env:BUILD_SRC\openssl-$env:OPENSSL_VERSION -NewName $env:BUILD_SRC\openssl; `
+    Remove-Item -Recurse -Force $env:BUILD_SRC\openssl\test -ErrorAction SilentlyContinue; `
     `
     Write-Host 'Extracting Libmodbus archive ...'; `
     tar -zxf $env:BUILD_SRC\libmodbus.tar.gz; `
@@ -118,10 +119,10 @@ RUN Set-Location -Path $env:SystemDrive\.; `
     Move-Item -Path $env:BUILD_SRC\curl-$env:CURL_VERSION\ -Destination $env:BUILD_SRC\curl; `
     `
     Write-Host 'Removing downloaded...'; `
-    Remove-Item -Force -Recurse $env:BUILD_SRC\*.tar.gz; `
-    Remove-Item -Force -Recurse $env:BUILD_SRC\*.zip; `
-    Remove-Item -Force -Recurse $env:BUILD_DEPS\*.tar.gz; `
-    Remove-Item -Force -Recurse $env:BUILD_DEPS\*.zip;
+    Remove-Item -Force -Recurse $env:BUILD_SRC\*.tar.gz -ErrorAction SilentlyContinue; `
+    Remove-Item -Force -Recurse $env:BUILD_SRC\*.zip -ErrorAction SilentlyContinue; `
+    Remove-Item -Force -Recurse $env:BUILD_DEPS\*.tar.gz -ErrorAction SilentlyContinue; `
+    Remove-Item -Force -Recurse $env:BUILD_DEPS\*.zip -ErrorAction SilentlyContinue;
 
 FROM ${OS_BASE_IMAGE}
 
@@ -175,10 +176,10 @@ RUN Set-Location -Path $env:SystemDrive\.; `
     `
     Write-Host 'Verifying install ("nasm -v") ...'; `
     nasm -v; `
-	`
+    `
     Write-Host 'Verifying install ("perl -v") ...'; `
     perl -v; `
-	`
+    `
     Write-Host ('{0} - Visual Studio components installing...' -f $(Get-Date -format 'u')); `
     cmd /C start /w $env:BUILD_DEPS\vs_buildtools.exe `
         --quiet `
@@ -207,7 +208,7 @@ RUN Set-Location -Path $env:SystemDrive\.; `
     Write-Host 'Build environment is ready...';
 
 RUN Import-Module (Get-ChildItem $env:VS_PATH -Recurse -File -Filter Microsoft.VisualStudio.DevShell.dll).FullName; `
-    Enter-VsDevShell -VsInstallPath $env:VS_PATH -SkipAutomaticLocation -DevCmdArguments """-arch=$env:BUILD_ARCH"""; `
+    Enter-VsDevShell -VsInstallPath $env:VS_PATH -SkipAutomaticLocation -DevCmdArguments """-arch=x64"""; `
     `
     Write-Host 'Building Zlib library...'; `
     Set-Location -Path $env:SystemDrive\.; `
@@ -249,9 +250,10 @@ RUN Import-Module (Get-ChildItem $env:VS_PATH -Recurse -File -Filter Microsoft.V
         --api=1.1.0 `
         --prefix=$env:BUILD_OUTPUT\openssl `
         --openssldir=$env:BUILD_OUTPUT\openssl_ssl; `
-    nmake /S build_libs; `
+    nmake /S build_libs | Out-Null; `
     nmake /S INSTALLDOCS=0 INSTALLHTML=0 install_dev; `
-    nmake /S clean | Out-Null; `
+    $ErrorActionPreference = 'Continue'; `
+    nmake /S clean 2>$null | Out-Null; `
     Write-Host 'OpenSSL is ready...';
 
 RUN Import-Module (Get-ChildItem $env:VS_PATH -Recurse -File -Filter Microsoft.VisualStudio.DevShell.dll).FullName; `
@@ -263,6 +265,7 @@ RUN Import-Module (Get-ChildItem $env:VS_PATH -Recurse -File -Filter Microsoft.V
     cmake -S $env:BUILD_SRC\pcre2 -B $env:BUILD_SRC\pcre2\build `
         -G """Visual Studio 17 2022""" `
         -A x64 `
+        -DBUILD_STATIC_LIBS=ON `
         -DBUILD_SHARED_LIBS=OFF `
         -DPCRE2_BUILD_TESTS=OFF `
         -DPCRE2_BUILD_PCRE2GREP=OFF `
@@ -286,7 +289,7 @@ RUN Import-Module (Get-ChildItem $env:VS_PATH -Recurse -File -Filter Microsoft.V
     cscript //nologo .\configure.js; `
     Set-Location -Path $env:BUILD_SRC\libmodbus; `
     cmake -S $env:BUILD_SRC\libmodbus -B $env:BUILD_SRC\libmodbus\build `
-        -G """"Visual Studio 17 2022""" `
+        -G """Visual Studio 17 2022""" `
         -A x64 `
         -DBUILD_SHARED_LIBS=OFF `
         -DCMAKE_MSVC_RUNTIME_LIBRARY="""MultiThreaded$<$<CONFIG:Debug>:Debug>""" `

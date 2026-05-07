@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.6
-ARG OS_BASE_IMAGE=ubuntu:noble
+ARG OS_BASE_IMAGE=ubuntu:resolute
 ARG MAJOR_VERSION=7.4
-ARG ZBX_VERSION=${MAJOR_VERSION}.8
+ARG ZBX_VERSION=${MAJOR_VERSION}.10
 ARG BUILD_BASE_IMAGE=zabbix-build-mysql:ubuntu-${ZBX_VERSION}
 
 FROM ${BUILD_BASE_IMAGE} AS builder
@@ -89,11 +89,15 @@ RUN --mount=type=cache,target=/var/cache/apt/,sharing=locked \
     chmod g=u ${ZABBIX_CONF_DIR} && \
     /usr/sbin/zabbix_agentd -V
 
+RUN --mount=from=entrypoints,target=/tmp/entrypoints,ro \
+    set -eux && \
+    install -d /usr/lib/docker-entrypoint && \
+    install -m 0755 /tmp/entrypoints/agent.sh /usr/bin/docker-entrypoint.sh && \
+    install -m 0644 /tmp/entrypoints/lib/*.sh /usr/lib/docker-entrypoint/
+
 EXPOSE 10050/tcp
 
 WORKDIR ${ZABBIX_USER_HOME_DIR}
-
-COPY ["docker-entrypoint.sh", "/usr/bin/"]
 
 ENTRYPOINT ["/usr/bin/docker-entrypoint.sh"]
 

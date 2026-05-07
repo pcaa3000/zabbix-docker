@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.6
-ARG OS_BASE_IMAGE=ubuntu:noble
+ARG OS_BASE_IMAGE=ubuntu:resolute
 ARG MAJOR_VERSION=7.4
-ARG ZBX_VERSION=${MAJOR_VERSION}.8
+ARG ZBX_VERSION=${MAJOR_VERSION}.10
 ARG BUILD_BASE_IMAGE=zabbix-build-mysql:ubuntu-${ZBX_VERSION}
 
 FROM ${BUILD_BASE_IMAGE} AS builder
@@ -31,7 +31,6 @@ LABEL org.opencontainers.image.authors="Alexey Pustovalov <alexey.pustovalov@zab
 STOPSIGNAL SIGTERM
 
 COPY --from=builder /tmp/zabbix-${ZBX_VERSION}-output/java_gateway/sbin/ /usr/sbin/zabbix_java/
-COPY conf/usr/sbin/zabbix_java_gateway /usr/sbin/
 
 RUN --mount=type=cache,target=/var/cache/apt/,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/,sharing=locked \
@@ -68,14 +67,16 @@ RUN --mount=type=cache,target=/var/cache/apt/,sharing=locked \
     chown --quiet -R zabbix:0 ${FIX_PERM_LIST} && \
     chmod -R g=u ${FIX_PERM_LIST}
 
+RUN --mount=from=entrypoints,target=/tmp/entrypoints,ro \
+    set -eux && \
+    install -d /usr/lib/docker-entrypoint && \
+    install -m 0755 /tmp/entrypoints/java-gateway.sh /usr/bin/docker-entrypoint.sh && \
+    install -m 0644 /tmp/entrypoints/lib/*.sh /usr/lib/docker-entrypoint/
+
 EXPOSE 10052/tcp
-
-WORKDIR ${ZABBIX_USER_HOME_DIR}
-
-COPY ["docker-entrypoint.sh", "/usr/bin/"]
-
-ENTRYPOINT ["docker-entrypoint.sh"]
 
 USER 1997
 
-CMD ["/usr/sbin/zabbix_java_gateway"]
+WORKDIR ${ZABBIX_USER_HOME_DIR}
+
+ENTRYPOINT ["docker-entrypoint.sh"]

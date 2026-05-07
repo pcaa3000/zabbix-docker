@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1.6
 ARG OS_BASE_IMAGE=registry.access.redhat.com/ubi10/ubi-minimal:10.1
 ARG MAJOR_VERSION=7.4
-ARG RELEASE=8
-ARG ZBX_VERSION=${MAJOR_VERSION}.8
+ARG RELEASE=10
+ARG ZBX_VERSION=${MAJOR_VERSION}.10
 ARG BUILD_BASE_IMAGE=zabbix-build-pgsql:rhel-${ZBX_VERSION}
 
 FROM ${BUILD_BASE_IMAGE} AS builder
@@ -116,6 +116,7 @@ RUN --mount=type=tmpfs,target=/var/lib/dnf/ \
             --disablerepo="*" \
             --enablerepo="ubi-10-baseos-rpms" \
             --setopt=install_weak_deps=0 \
+            --setopt=keepcache=0 \
             --best \
             --setopt=tsflags=nodocs \
         tzdata && \
@@ -161,15 +162,17 @@ RUN --mount=type=tmpfs,target=/var/lib/dnf/ \
     chmod g=u ${ZABBIX_CONF_DIR} && \
     /usr/sbin/zabbix_server -V
 
+RUN --mount=from=entrypoints,target=/tmp/entrypoints,ro \
+    set -eux && \
+    install -d /usr/lib/docker-entrypoint && \
+    install -m 0755 /tmp/entrypoints/server-pgsql.sh /usr/bin/docker-entrypoint.sh && \
+    install -m 0644 /tmp/entrypoints/lib/*.sh /usr/lib/docker-entrypoint/
+
 EXPOSE 10051/tcp
 
 WORKDIR ${ZABBIX_USER_HOME_DIR}
 
 VOLUME ["${ZABBIX_USER_HOME_DIR}/snmptraps", "${ZABBIX_USER_HOME_DIR}/export"]
-
-COPY docker-entrypoint.sh /usr/bin/
-
-ENTRYPOINT ["/usr/bin/docker-entrypoint.sh"]
 
 USER 1997
 

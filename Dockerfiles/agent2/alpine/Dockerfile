@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.6
 ARG OS_BASE_IMAGE=alpine:3.23
 ARG MAJOR_VERSION=7.4
-ARG ZBX_VERSION=${MAJOR_VERSION}.8
+ARG ZBX_VERSION=${MAJOR_VERSION}.10
 ARG BUILD_BASE_IMAGE=zabbix-build-mysql:alpine-${ZBX_VERSION}
 
 FROM ${BUILD_BASE_IMAGE} AS builder
@@ -34,6 +34,7 @@ LABEL org.opencontainers.image.authors="Alexey Pustovalov <alexey.pustovalov@zab
 STOPSIGNAL SIGTERM
 
 COPY --from=builder /tmp/zabbix-${ZBX_VERSION}-output/agent2/sbin/zabbix_agent2 /usr/sbin/
+COPY --from=builder /tmp/zabbix-${ZBX_VERSION}-output/agent2/sbin/zabbix-agent2-plugin/ /usr/sbin/zabbix-agent2-plugin/
 COPY --from=builder /tmp/zabbix-${ZBX_VERSION}-output/general/bin/zabbix_get /usr/bin/
 COPY --from=builder /tmp/zabbix-${ZBX_VERSION}-output/general/bin/zabbix_sender /usr/bin/
 COPY --from=builder /tmp/zabbix-${ZBX_VERSION}-output/agent2/conf/ ${ZABBIX_CONF_DIR}/
@@ -83,11 +84,15 @@ RUN set -eux && \
     chmod g=u ${ZABBIX_CONF_DIR} && \
     /usr/sbin/zabbix_agent2 -V
 
+RUN --mount=from=entrypoints,target=/tmp/entrypoints,ro \
+    set -eux && \
+    install -d /usr/lib/docker-entrypoint && \
+    install -m 0755 /tmp/entrypoints/agent2.sh /usr/bin/docker-entrypoint.sh && \
+    install -m 0644 /tmp/entrypoints/lib/*.sh /usr/lib/docker-entrypoint/
+
 EXPOSE 10050/tcp 31999/tcp
 
 WORKDIR ${ZABBIX_USER_HOME_DIR}
-
-COPY ["docker-entrypoint.sh", "/usr/bin/"]
 
 ENTRYPOINT ["/usr/bin/docker-entrypoint.sh"]
 
