@@ -117,6 +117,8 @@ services:
   extends:
    file: compose_databases.yaml
    service: mysql-server
+  volumes:
+   - ./zabbix-mysql.cnf:/etc/mysql/conf.d/zabbix-mysql.cnf:ro
 
 #  elasticsearch:
 #   extends:

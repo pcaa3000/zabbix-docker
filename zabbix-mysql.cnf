@@ -1,0 +1,63 @@
+# ==========================================
+# MySQL 8.0 Optimized for Zabbix
+# Purpose: Maximize performance for Zabbix high-frequency writes
+# ==========================================
+
+[mysqld]
+
+# ==========================================
+# InnoDB - THE MOST CRITICAL PART
+# ==========================================
+
+# InnoDB settings
+innodb_buffer_pool_size=2G
+innodb_buffer_pool_instances=2
+innodb_buffer_pool_chunk_size=128M
+
+# RedoLog
+innodb_redo_log_capacity=512M
+innodb_redo_log_buffer_size=32M
+
+# FLUSH - When and how writes are flushed to disk
+innodb-flush-log-at-trx-commit=2 # Dramatically improves write speed (safer than 0)
+innodb_flush_method=O_DIRECT # Best for Docker on Linux (prevents double buffering)
+innodb_doblewrite=0 # Disable doublewrite buffer (better performance)
+sync_binlog=0 # Disable sync binlog (better performance)    
+
+# IO - Write and reads velocity
+innodb_io_capacity=2000
+innodb_io_capacity_max=3000
+innodb_read_io_threads=8
+innodb_write_io_threads=8
+innodb_thread_concurrency=0
+
+# Conexions and timeouts
+max_connections=500
+max_user_connections=400
+max_connect_errors=100
+timeout=60
+wait_timeout=600
+interactive_timeout=600
+max_allowed_packet=100M
+
+# Temp Tables and Caches
+table_open_cache=2048
+table_open_cache_instances=8
+table_definition_cache=2048
+tmp_table_size=256M
+max_heap_table_size=256M
+join_buffer_size=4M
+sort_buffer_size=4M
+
+# Binary Logs
+binlog_expire_logs_seconds=259200
+max_binlog_size=1G
+
+#Purge and Cleaners
+innodb_purge_threads=4
+innodb_page_cleaners=4
+
+# LOGS - How MySQL writes logs (affects disk I/O)
+innodb_log_file_size=512M # Larger log files = fewer flush operations (better performance)
+innodb_log_files_in_group=2 # Number of log files (2 is optimal for most cases)
+innodb_flush_log_at_timeout=3 # Flush logs every 3 seconds instead of every commit (trade-off: 3 seconds of data loss vs huge performance gain)
